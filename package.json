@@ -1,0 +1,13 @@
+{
+  "name": "slack-pins-sync-task",
+  "version": "0.0.1",
+  "description": "slack pins chanel checkout  ",
+  "main": "index.js",
+  "repository": "https://github.com/spb-frontend/slack-pins-sync-task",
+  "author": "Groxot <w8it@mail.ru>",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "request": "^2.88.0"
+  }
+}
