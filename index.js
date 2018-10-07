@@ -27,20 +27,38 @@ const ensureFolder = dir => {
 };
 
 const parcePinsData = async ({items}) => {
+  const idNameMap = await fetch('https://slack.com/api/users.list', {
+    headers: {
+      Authorization: `Bearer ${slackApi.token}`,
+    },
+  })
+    .then(res => res.json())
+    .then(({members}) => {
+      // console.log(Object.keys(map));
+      const res = {};
+      members.forEach(({id, name}) => {
+        res[id] = name;
+      });
+      return res;
+    });
+
   console.log('collected ' + items.length + ' pins');
   await Promise_serial(
     items.map(({created, created_by, type, file, message}) => async () => {
       let date = new Date(created * 1000);
       let pin = {
         createDate: date.toISOString(),
-        slackUserId: created_by,
+        slackUserId: idNameMap[created_by],
       };
 
-      // const t = await fetch('https://slack.com/api/users.identity', {
-      //   headers: {
-      //     Authorization: `Bearer ${slackApi.token}`,
-      //   },
-      // }).then(res => res.json());
+      // regexp messages and replace by map on mentions
+      // <@U4HLJR64V>
+
+      // get image name and add to meta
+
+      // get who is author of message and add to meta
+
+      // check links if image - download it?
 
       const folder = `${downloadFolder}/${pin.createDate}`;
       ensureFolder(folder);
