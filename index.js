@@ -58,7 +58,11 @@ const parcePinsData = async ({items}) => {
 
       // get who is author of message and add to meta
 
-      // check links if image - download it?
+      // get avatars of users related of message (author and who pinned)
+
+      // get custom emojies and apply to message (?)
+
+      // check links if image - download it (?)
 
       const folder = `${downloadFolder}/${pin.createDate}`;
       ensureFolder(folder);
