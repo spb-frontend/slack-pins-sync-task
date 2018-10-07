@@ -1,59 +1,83 @@
 const https = require('https');
-const config = require('./config');
+const {slackApi, downloadFolder} = require('./config');
 const fs = require('fs');
 const request = require('request');
+const fetch = require('node-fetch');
+const Promise_serial = require('promise-serial');
 
+const pinsUrl = `${slackApi.url}${slackApi.pins}?${slackApi.channelIdUrl}&${
+  slackApi.tokenUrl
+}`;
 
-const pinsUrl = `${config.slackApi.url}${config.slackApi.pins}?${config.slackApi.channelIdUrl}&${config.slackApi.tokenUrl}`;
-console.log('request pins from: '+pinsUrl);
+console.log('request pins from: ' + pinsUrl);
 
-https.get(pinsUrl, (resp) => {
-  let data = '';
-  resp.on('data', (chunk) => {
-    data += chunk;
-  });
+const download = (uri, filename, callback) => {
+  request({
+    url: uri,
+    headers: {
+      Authorization: `Bearer ${slackApi.token}`,
+    },
+  }).pipe(fs.createWriteStream(filename));
+};
 
-  resp.on('end', () => {
-    parcePinsData(JSON.parse(data));
-  });
+const ensureFolder = dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir);
+  }
+};
 
-}).on("error", (err) => {
-  console.log("Error: " + err.message);
-});
+const parcePinsData = async ({items}) => {
+  console.log('collected ' + items.length + ' pins');
+  await Promise_serial(
+    items.map(({created, created_by, type, file, message}) => async () => {
+      let date = new Date(created * 1000);
+      let pin = {
+        createDate: date.toISOString(),
+        slackUserId: created_by,
+      };
 
-function parcePinsData(data) {
-    console.log('collected '+data.items.length+' pins');
-    const pins = data.items.map(item => {
-        let pin = {
-            createDate: item.created,
-            slackUserId: item.created_by
-        };
+      // const t = await fetch('https://slack.com/api/users.identity', {
+      //   headers: {
+      //     Authorization: `Bearer ${slackApi.token}`,
+      //   },
+      // }).then(res => res.json());
 
-        if(item.type === `file`) {
-          console.log(`download file ${item.file.url_private_download}`);
-          const fileName = `${config.downloadFolder}/${item.file.id}.${item.file.filetype}`;
-          download(item.file.url_private_download, fileName);
+      const folder = `${downloadFolder}/${pin.createDate}`;
+      ensureFolder(folder);
+
+      if (type === `file`) {
+        const {url_private_download, id, filetype} = file;
+        console.log(`download file ${url_private_download}`);
+
+        const fileName = `${folder}/file.${filetype}`;
+        download(url_private_download, fileName);
+        pin = {...pin, file: fileName};
+      } else if (type === `message`) {
+        if (`files` in message) {
+          const {files} = message;
+          const [file] = files;
+          const {url_private_download, id, filetype} = file;
+          console.log(`download file ${url_private_download}`);
+          const fileName = `${folder}/file.${filetype}`;
+          download(url_private_download, fileName);
           pin = {...pin, file: fileName};
-        } 
-        else if (item.type === `message`) {
-          if (`files` in item.message) {   
-            console.log(`download file ${item.message.files[0].url_private_download}`);
-            const fileName = `${config.downloadFolder}/${item.message.files[0].id}.${item.message.files[0].filetype}`;
-            download(item.message.files[0].url_private_download, fileName);
-            pin = {...pin, file: fileName};
-          }
-          pin = {...pin, message: item.message.text};
         }
-        return pin;
-    });
-    console.log(pins);
-}
+        pin = {...pin, message: message.text};
+      }
 
-function download(uri, filename, callback){
-    request({
-        url: uri,
-        headers: {
-          'Authorization': `Bearer ${config.slackApi.token}`
-        }
-      }).pipe(fs.createWriteStream(filename));
-  };
+      fs.writeFileSync(
+        `${folder}/meta.json`,
+        JSON.stringify(pin, null, 2),
+        'utf8',
+      );
+      return pin;
+    }),
+  );
+};
+
+fetch(pinsUrl)
+  .then(res => res.json())
+  .then(parcePinsData)
+  .catch(err => {
+    console.log('Error: ' + err.message);
+  });

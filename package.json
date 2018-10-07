@@ -8,6 +8,9 @@
   "license": "MIT",
   "private": false,
   "dependencies": {
+    "node-fetch": "^2.2.0",
+    "promise-reduce": "^2.1.0",
+    "promise-serial": "^0.1.5",
     "request": "^2.88.0"
   }
 }
